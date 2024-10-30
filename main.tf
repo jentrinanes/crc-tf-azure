@@ -74,5 +74,43 @@ resource "azurerm_dns_cname_record" "resume-jtrinanes-com" {
 resource "azurerm_cdn_endpoint_custom_domain" "resume-jtrinanes-com" {
   name            = "resume-jtrinanes-com"
   cdn_endpoint_id = azurerm_cdn_endpoint.cdncrcjen.id
-  host_name       = "${azurerm_dns_cname_record_resume-jtrinanes-com.name}.${data.azurerm_dns_zone.resume-jtrinanes-com.name}"  
+  host_name       = "${azurerm_dns_cname_record_resume-jtrinanes-com.name}.${data.azurerm_dns_zone.resume-jtrinanes-com.name}"
 }
+
+# Create Azure Cosmos DB Account
+resource "azurerm_cosmosdb_account" "cosmosdbcrcjen" {
+  name                       = "cosmosdbcrcjen"
+  location                   = var.location
+  resource_group_name        = var.resource_group_name
+  offer_type                 = "Standard"
+  kind                       = "GlobalDocumentDB"
+  automatic_failover_enabled = false
+  capabilities {
+    name = "EnableServerless"
+  }
+  consistency_policy {
+    consistency_level       = "Session"
+    max_interval_in_seconds = 5
+    max_staleness_prefix    = 100
+  }
+  geo_location {
+    location          = var.location
+    failover_priority = 0
+  }
+  analytical_storage {
+    schema_type = "WellDefined"
+  }
+  capacity {
+    total_throughput_limit = 4000
+  }
+}
+
+# Create Azure Cosmos DB SQL Database
+resource "azurerm_cosmosdb_sql_database" "cosmosdbcrcjendb" {
+  name                = "VisitorCountDb"
+  resource_group_name = var.resource_group_name
+  account_name        = azurerm_cdn_endpoint.cdncrcjen.name
+}
+
+# TODO: Configure SQL Role Definitions
+# TODO: Configure SQL Container
