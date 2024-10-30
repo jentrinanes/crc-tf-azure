@@ -15,13 +15,13 @@ provider "azurerm" {
 }
 
 # Create the Resource Group
-resource "azurerm_resource_group" "rg" {
+resource "azurerm_resource_group" "rg-cloud-resume-challenge" {
   name     = var.resource_group_name
   location = var.location
 }
 
 # Create the Storage Account 
-resource "azurerm_storage_account" "sa" {
+resource "azurerm_storage_account" "sacrcjen" {
   name                     = "sacrcjen"
   resource_group_name      = var.resource_group_name
   location                 = var.location
@@ -35,5 +35,24 @@ resource "azurerm_storage_account" "sa" {
   static_website {
     index_document     = "index.html"
     error_404_document = "index.html"
+  }
+}
+
+# Create CDN Endpoint
+resource "azurerm_cdn_profile" "cdn-crc-jen" {
+  name                = "cdn-crc-jen"
+  location            = var.global-location
+  resource_group_name = var.resource_group_name
+  sku                 = "Standard_Microsoft"
+}
+
+resource "azurerm_cdn_endpoint" "cdncrcjen" {
+  name                = "cdncrcjen"
+  profile_name        = azurerm_cdn_profile.cdn-crc-jen.name
+  location            = var.global-location
+  resource_group_name = var.resource_group_name
+  origin {
+    name      = "default-origin-2e0b8c9c"
+    host_name = "sacrcjen.z23.web.core.windows.net"
   }
 }

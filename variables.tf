@@ -5,3 +5,7 @@ variable "resource_group_name" {
 variable "location" {
   default = "southeastasia"
 }
+
+variable "global-location" {
+  default = "Global"
+}
