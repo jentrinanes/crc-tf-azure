@@ -1,3 +1,5 @@
+data "azurerm_client_config" "current" {}
+
 # Configure the Azure provider
 terraform {
   required_providers {
@@ -133,7 +135,7 @@ resource "azurerm_cosmosdb_sql_role_definition" "sqlroledef1" {
     ]
   }
   assignable_scopes = [
-    "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.DocumentDB/databaseAccounts/${azurerm_cosmosdb_account.cosmosdbcrcjen.name}"
+    "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.DocumentDB/databaseAccounts/${azurerm_cosmosdb_account.cosmosdbcrcjen.name}"
   ]
   name = "${azurerm_cosmosdb_account.cosmosdbcrcjen.name}/00000000-0000-0000-0000-000000000001"
 }
@@ -150,7 +152,7 @@ resource "azurerm_cosmosdb_sql_role_definition" "sqlroledef2" {
     ]
   }
   assignable_scopes = [
-    "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.DocumentDB/databaseAccounts/${azurerm_cosmosdb_account.cosmosdbcrcjen.name}"
+    "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.DocumentDB/databaseAccounts/${azurerm_cosmosdb_account.cosmosdbcrcjen.name}"
   ]
   name = "${azurerm_cosmosdb_account.cosmosdbcrcjen.name}/00000000-0000-0000-0000-000000000002"
 }
@@ -170,4 +172,32 @@ resource "azurerm_cosmosdb_sql_container" "cosmosdbcrcjencontainer" {
     mode                     = "LastWriterWins"
     conflict_resolution_path = "/_ts"
   }
+}
+
+# Create Key Vault
+resource "azurerm_key_vault" "keyvaultcrcjen" {
+  name                      = "keyvaultcrcjen"
+  location                  = var.location
+  resource_group_name       = var.resource_group_name
+  sku_name                  = "standard"
+  tenant_id                 = "${data.azurerm_client_config.current.tenant_id}"
+  enable_rbac_authorization = true
+  network_acls {
+    bypass                     = "None"
+    default_action             = "Allow"
+    ip_rules                   = []
+    virtual_network_subnet_ids = []
+  }
+}
+
+resource "azurerm_key_vault_secret" "secret1" {
+  name         = "${azurerm_key_vault.keyvaultcrcjen.name}/CosmosDbPrimaryKey"
+  value        = "${azurerm_cosmosdb_account.cosmosdbcrcjen.primary_key}"
+  key_vault_id = azurerm_key_vault.keyvaultcrcjen.id
+}
+
+resource "azurerm_key_vault_secret" "secret2" {
+  name         = "${azurerm_key_vault.keyvaultcrcjen.name}/CosmosDbUri"
+  value        = "${azurerm_cosmosdb_account.cosmosdbcrcjen.endpoint}"
+  key_vault_id = azurerm_key_vault.keyvaultcrcjen.id
 }
