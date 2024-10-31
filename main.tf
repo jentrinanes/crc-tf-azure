@@ -79,12 +79,13 @@ resource "azurerm_cdn_endpoint_custom_domain" "resume-jtrinanes-com" {
 
 # Create Azure Cosmos DB Account
 resource "azurerm_cosmosdb_account" "cosmosdbcrcjen" {
-  name                       = "cosmosdbcrcjen"
-  location                   = var.location
-  resource_group_name        = var.resource_group_name
-  offer_type                 = "Standard"
-  kind                       = "GlobalDocumentDB"
-  automatic_failover_enabled = false
+  name                             = "cosmosdbcrcjen"
+  resource_group_name              = var.resource_group_name
+  location                         = var.location
+  offer_type                       = "Standard"
+  kind                             = "GlobalDocumentDB"
+  automatic_failover_enabled       = false
+  multiple_write_locations_enabled = false
   capabilities {
     name = "EnableServerless"
   }
@@ -103,14 +104,70 @@ resource "azurerm_cosmosdb_account" "cosmosdbcrcjen" {
   capacity {
     total_throughput_limit = 4000
   }
+  backup {
+    type                = "Periodic"
+    interval_in_minutes = 240
+    retention_in_hours  = 8
+    storage_redundancy  = "Local"
+  }
 }
 
 # Create Azure Cosmos DB SQL Database
 resource "azurerm_cosmosdb_sql_database" "cosmosdbcrcjendb" {
   name                = "VisitorCountDb"
   resource_group_name = var.resource_group_name
-  account_name        = azurerm_cdn_endpoint.cdncrcjen.name
+  account_name        = "${azurerm_cosmosdb_account.cosmosdbcrcjen.name}/VisitorCountDb"
 }
 
-# TODO: Configure SQL Role Definitions
-# TODO: Configure SQL Container
+# Configure SQL Role Definitions
+resource "azurerm_cosmosdb_sql_role_definition" "sqlroledef1" {
+  resource_group_name = var.resource_group_name
+  account_name        = azurerm_cosmosdb_account.cosmosdbcrcjen.name
+  role_definition_id  = "00000000-0000-0000-0000-000000000001"
+  permissions {
+    data_actions = [
+      "Microsoft.DocumentDB/databaseAccounts/readMetadata",
+      "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/executeQuery",
+      "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/readChangeFeed",
+      "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/read"
+    ]
+  }
+  assignable_scopes = [
+    "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.DocumentDB/databaseAccounts/${azurerm_cosmosdb_account.cosmosdbcrcjen.name}"
+  ]
+  name = "${azurerm_cosmosdb_account.cosmosdbcrcjen.name}/00000000-0000-0000-0000-000000000001"
+}
+
+resource "azurerm_cosmosdb_sql_role_definition" "sqlroledef2" {
+  resource_group_name = var.resource_group_name
+  account_name        = azurerm_cosmosdb_account.cosmosdbcrcjen.name
+  role_definition_id  = "00000000-0000-0000-0000-000000000002"
+  permissions {
+    data_actions = [
+      "Microsoft.DocumentDB/databaseAccounts/readMetadata",
+      "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/*",
+      "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/*"
+    ]
+  }
+  assignable_scopes = [
+    "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.DocumentDB/databaseAccounts/${azurerm_cosmosdb_account.cosmosdbcrcjen.name}"
+  ]
+  name = "${azurerm_cosmosdb_account.cosmosdbcrcjen.name}/00000000-0000-0000-0000-000000000002"
+}
+
+# Create SQL Container
+resource "azurerm_cosmosdb_sql_container" "cosmosdbcrcjencontainer" {
+  name                = "${azurerm_cosmosdb_account.cosmosdbcrcjen.name}/${azurerm_cosmosdb_sql_database.cosmosdbcrcjendb.name}/VisitorCountContainer"
+  resource_group_name = var.resource_group_name
+  account_name        = azurerm_cosmosdb_account.cosmosdbcrcjen.name
+  database_name       = azurerm_cosmosdb_sql_database.cosmosdbcrcjendb.name
+  partition_key_paths = [
+    "/id"
+  ]
+  partition_key_kind    = "Hash"
+  partition_key_version = 2
+  conflict_resolution_policy {
+    mode                     = "LastWriterWins"
+    conflict_resolution_path = "/_ts"
+  }
+}
