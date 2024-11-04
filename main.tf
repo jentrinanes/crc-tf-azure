@@ -180,7 +180,7 @@ resource "azurerm_key_vault" "keyvaultcrcjen" {
   location                  = var.location
   resource_group_name       = var.resource_group_name
   sku_name                  = "standard"
-  tenant_id                 = "${data.azurerm_client_config.current.tenant_id}"
+  tenant_id                 = data.azurerm_client_config.current.tenant_id
   enable_rbac_authorization = true
   network_acls {
     bypass                     = "None"
@@ -192,12 +192,35 @@ resource "azurerm_key_vault" "keyvaultcrcjen" {
 
 resource "azurerm_key_vault_secret" "secret1" {
   name         = "${azurerm_key_vault.keyvaultcrcjen.name}/CosmosDbPrimaryKey"
-  value        = "${azurerm_cosmosdb_account.cosmosdbcrcjen.primary_key}"
+  value        = azurerm_cosmosdb_account.cosmosdbcrcjen.primary_key
   key_vault_id = azurerm_key_vault.keyvaultcrcjen.id
 }
 
 resource "azurerm_key_vault_secret" "secret2" {
   name         = "${azurerm_key_vault.keyvaultcrcjen.name}/CosmosDbUri"
-  value        = "${azurerm_cosmosdb_account.cosmosdbcrcjen.endpoint}"
+  value        = azurerm_cosmosdb_account.cosmosdbcrcjen.endpoint
   key_vault_id = azurerm_key_vault.keyvaultcrcjen.id
+}
+
+# Create Function App
+resource "azurerm_app_service_plan" "appserviceplan" {
+  name                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.Web/serverfarms/ASP-rgcloudresumechallenge-81b6"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  kind                = "functionapp,linux"
+  sku {
+    size = "Y1"
+    tier = "Dynamic"
+  }
+}
+
+resource "azurerm_function_app" "funccrcjencsharp" {
+  name                       = "funccrcjencsharp"
+  location                   = var.location
+  resource_group_name        = var.resource_group_name
+  app_service_plan_id        = azurerm_app_service_plan.appserviceplan.id
+  storage_account_name       = azurerm_storage_account.sacrcjen.name
+  storage_account_access_key = azurerm_storage_account.sacrcjen.primary_access_key
+  os_type                    = "linux"
+  version                    = "~4"
 }
